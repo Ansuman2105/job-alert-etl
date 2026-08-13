@@ -140,14 +140,23 @@ def upsert_jobs(jobs: list[NormalisedJob]) -> tuple[int, int]:
 # --------------------------------------------------------------------------
 
 def fetch_unenriched(limit: int) -> list[dict[str, Any]]:
-    """Jobs with no LLM facts yet, newest first."""
+    """Jobs worth enriching: no facts yet, and not already published anywhere.
+
+    The second condition is what keeps the LLM budget useful. After a
+    seed-posted backfill, thousands of old jobs carry posted_jobs rows and can
+    never produce a message no matter how well they are enriched — spending
+    12 seconds of Groq quota on each would drain the daily allowance without
+    ever reaching a channel.
+    """
     with connect() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute(
             """
             SELECT j.job_hash, j.company, j.title, j.location, j.description
               FROM jobs j
-              LEFT JOIN job_facts f USING (job_hash)
+              LEFT JOIN job_facts f  ON f.job_hash = j.job_hash
+              LEFT JOIN posted_jobs p ON p.job_hash = j.job_hash
              WHERE f.job_hash IS NULL
+               AND p.job_hash IS NULL
              ORDER BY j.first_seen DESC
              LIMIT %s
             """,
