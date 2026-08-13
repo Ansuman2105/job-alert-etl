@@ -111,7 +111,9 @@ def upsert_jobs(jobs: list[NormalisedJob]) -> tuple[int, int]:
     ]
 
     with connect() as conn, conn.cursor() as cur:
-        psycopg2.extras.execute_values(
+        # fetch=True is required with RETURNING: execute_values sends the rows in
+        # pages, and a plain cur.fetchall() afterwards sees only the final page.
+        results = psycopg2.extras.execute_values(
             cur,
             """
             INSERT INTO jobs (job_hash, source, board, source_job_id, company,
@@ -126,8 +128,8 @@ def upsert_jobs(jobs: list[NormalisedJob]) -> tuple[int, int]:
             """,
             rows,
             page_size=500,
+            fetch=True,
         )
-        results = cur.fetchall()
 
     inserted = sum(1 for (is_new,) in results if is_new)
     return (inserted, len(results) - inserted)
