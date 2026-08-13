@@ -45,7 +45,11 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.0-flash' }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      # Fallback for any route whose own channel secret is unset, and the target
+      # for failure alerts when TELEGRAM_ALERT_CHANNEL_ID is not set.
       TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+      TELEGRAM_CHANNEL_INDIA: ${{ secrets.TELEGRAM_CHANNEL_INDIA }}
+      TELEGRAM_CHANNEL_INTERNATIONAL: ${{ secrets.TELEGRAM_CHANNEL_INTERNATIONAL }}
       TELEGRAM_ALERT_CHANNEL_ID: ${{ secrets.TELEGRAM_ALERT_CHANNEL_ID }}
       ENRICH_LIMIT: ${{ vars.ENRICH_LIMIT || '250' }}
       PUBLISH_LIMIT: ${{ vars.PUBLISH_LIMIT || '60' }}

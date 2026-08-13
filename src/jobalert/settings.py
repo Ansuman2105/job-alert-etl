@@ -97,3 +97,30 @@ def load_companies() -> dict:
 def load_profile() -> dict:
     with open(CONFIG_DIR / "profile.yaml", encoding="utf-8") as fh:
         return yaml.safe_load(fh) or {}
+
+
+def resolve_channels() -> dict[str, str]:
+    """Map each route name to the Telegram channel it publishes to.
+
+    profile.yaml stores the *name* of an environment variable, never the value,
+    so channel IDs stay in GitHub Secrets. A route whose variable is unset falls
+    back to TELEGRAM_CHANNEL_ID — that keeps a single-channel setup working and
+    means a half-finished migration degrades to "everything in one place"
+    rather than silently dropping jobs.
+    """
+    routing = load_profile().get("routing", {})
+    mapping = routing.get("channels") or {}
+    if not mapping:
+        return {"default": _require("TELEGRAM_CHANNEL_ID")}
+
+    fallback = os.getenv("TELEGRAM_CHANNEL_ID", "").strip()
+    resolved: dict[str, str] = {}
+    for route, env_name in mapping.items():
+        value = os.getenv(env_name, "").strip() or fallback
+        if not value:
+            raise ConfigError(
+                f"Route {route!r} needs {env_name} (or TELEGRAM_CHANNEL_ID as a fallback). "
+                f"Add it under Settings -> Secrets and variables -> Actions."
+            )
+        resolved[route] = value
+    return resolved

@@ -42,8 +42,53 @@ seniority_levels:
   - manager
   - director-plus
 
-# Future channel routing. Unused today — documents the intent so the schema
-# already carries what the split will need.
-# channels:
-#   data-engineering: "@your_data_jobs"
-#   software-backend: "@your_dev_jobs"
+# --------------------------------------------------------------------------
+# Channel routing
+# --------------------------------------------------------------------------
+# Each job goes to exactly one channel, decided by its location string.
+# This is a rule, not an LLM call — free, instant, and it applies retroactively
+# to jobs that were enriched before routing existed.
+
+routing:
+  # Route name -> the NAME of the environment variable holding that channel's
+  # ID. The value itself is a secret and never appears in this file.
+  # Order matters: the first matching route wins, and `international` is the
+  # catch-all so it must come last.
+  channels:
+    india: TELEGRAM_CHANNEL_INDIA
+    international: TELEGRAM_CHANNEL_INTERNATIONAL
+
+  # A job's location must contain one of these as a WHOLE WORD to be routed to
+  # India. Word-boundary matching matters here: a plain substring match on
+  # "india" would also catch "Indianapolis, IN" and "Indiana".
+  india_location_patterns:
+    - india
+    - bharat
+    - bengaluru
+    - bangalore
+    - hyderabad
+    - pune
+    - mumbai
+    - delhi
+    - gurgaon
+    - gurugram
+    - noida
+    - chennai
+    - kolkata
+    - ahmedabad
+    - jaipur
+    - kochi
+    - cochin
+    - trivandrum
+    - thiruvananthapuram
+    - indore
+    - chandigarh
+    - coimbatore
+    - mysuru
+    - nagpur
+    - vadodara
+    - surat
+    - bhubaneswar
+    - visakhapatnam
+    - kanpur
+    - lucknow

@@ -195,11 +195,18 @@ def fetch_publishable(
     limit: int,
     max_age_days: int,
     families: list[str] | None = None,
+    location_regex: str | None = None,
+    location_match: bool = True,
 ) -> list[dict[str, Any]]:
     """Enriched jobs not yet sent to this channel.
 
     Ordered oldest-first so a backlog drains in the order jobs appeared rather
     than newest-first, which would leave old jobs permanently stranded.
+
+    `location_regex` routes by location: with location_match=True only matching
+    jobs are returned, with False only non-matching ones. Filtering in SQL
+    rather than in Python keeps LIMIT meaningful — otherwise a limit of 60 could
+    return 60 rows that all belong to the other channel.
     """
     sql = """
         SELECT j.job_hash, j.company, j.title, j.location, j.url, j.remote,
@@ -217,6 +224,13 @@ def fetch_publishable(
     if families:
         sql += " AND f.family = ANY(%s)"
         params.append(families)
+
+    if location_regex:
+        # COALESCE matters: a NULL location makes the whole predicate NULL,
+        # which excludes the row from BOTH channels rather than one.
+        operator = "~*" if location_match else "!~*"
+        sql += f" AND COALESCE(j.location, '') {operator} %s"
+        params.append(location_regex)
 
     sql += " ORDER BY j.first_seen ASC LIMIT %s"
     params.append(limit)
@@ -282,6 +296,29 @@ def finish_run(run_id: int, status: str, stats: dict | None = None, error: str |
             """,
             (status, json.dumps(stats or {}), error, run_id),
         )
+
+
+def route_preview(location_regex: str) -> dict[str, int]:
+    """How the current `jobs` table splits across routes. Read-only."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT count(*) FILTER (WHERE COALESCE(location, '') ~* %s)  AS india,
+                   count(*) FILTER (WHERE COALESCE(location, '') !~* %s) AS international
+              FROM jobs
+            """,
+            (location_regex, location_regex),
+        )
+        india, international = cur.fetchone()
+        return {"india": india, "international": international}
+
+
+def posted_counts() -> dict[str, int]:
+    """Rows in posted_jobs per channel — confirms a backfill actually covered
+    every channel, which is the easiest thing to get wrong when adding one."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("SELECT channel, count(*) FROM posted_jobs GROUP BY channel ORDER BY channel")
+        return dict(cur.fetchall())
 
 
 def counts() -> dict[str, int]:

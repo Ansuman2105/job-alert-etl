@@ -114,25 +114,45 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def cmd_seed_posted(args: argparse.Namespace) -> int:
-    """Mark everything currently known as already published, without sending."""
-    from .settings import get_settings
+    """Mark everything currently known as already published, without sending.
 
-    channel = args.channel or get_settings().telegram_channel_id
+    Seeds every configured channel by default. Adding a new channel means its
+    posted_jobs is empty, so without this the next publish treats the entire
+    back catalogue as new for that channel.
+    """
+    from .settings import resolve_channels
+
+    channels = {"manual": args.channel} if args.channel else resolve_channels()
+
     if not args.yes:
-        print(
-            f"This marks every job currently in the database as already posted to {channel},\n"
-            "so they will never be published. Intended for first-run backfill.\n"
-            "Re-run with --yes to proceed."
-        )
+        print("This marks every job currently in the database as already posted to:")
+        for route, channel in channels.items():
+            print(f"  {route:<15} {channel}")
+        print("\nThey will never be published. Intended for first-run backfill.")
+        print("Re-run with --yes to proceed.")
         return 1
-    count = db.seed_posted(channel)
-    print(f"Marked {count} existing jobs as already posted to {channel}.")
+
+    for route, channel in channels.items():
+        count = db.seed_posted(channel)
+        print(f"[{route}] marked {count} existing jobs as already posted.")
     return 0
 
 
 def cmd_status(_: argparse.Namespace) -> int:
+    from . import routing
+
     for table, count in db.counts().items():
         print(f"{table:<14} {count:>8}")
+
+    print("\nRouting split (all jobs):")
+    for route, count in db.route_preview(routing.postgres_regex()).items():
+        print(f"  {route:<15} {count:>8}")
+
+    posted = db.posted_counts()
+    if posted:
+        print("\nAlready posted, per channel:")
+        for channel, count in posted.items():
+            print(f"  {channel:<15} {count:>8}")
     return 0
 
 

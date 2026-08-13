@@ -32,9 +32,13 @@ On the **Secrets** tab, click *New repository secret* for each:
 | `DATABASE_URL` | neon.tech → your project → **Connection string** → psycopg2 (keep `?sslmode=require`) |
 | `GROQ_API_KEY` | console.groq.com → **API Keys** → Create |
 | `TELEGRAM_BOT_TOKEN` | Telegram → message **@BotFather** → `/newbot` |
-| `TELEGRAM_CHANNEL_ID` | `@your_channel` for a public channel, or `-100…` for a private one |
+| `TELEGRAM_CHANNEL_INDIA` | `@your_india_channel` — jobs located in India |
+| `TELEGRAM_CHANNEL_INTERNATIONAL` | `@your_intl_channel` — everything else |
+| `TELEGRAM_CHANNEL_ID` | fallback for any route above that is unset; also the default alert target |
 | `GEMINI_API_KEY` | optional — aistudio.google.com, only if you switch providers |
 | `TELEGRAM_ALERT_CHANNEL_ID` | optional — a private channel for failure alerts |
+
+The same bot serves every channel — one token, and it must be an admin of each.
 
 On the **Variables** tab (these are *not* secret, and are visible in logs):
 
@@ -136,6 +140,34 @@ into per-topic channels later, that is a routing change against data you already
 have — not a re-enrichment of your history.
 
 To start filtering, set `filter_by_family: true` and list the families you want.
+
+### Channel routing
+
+Every job goes to exactly one channel, decided by its **location string** —
+a rule, not an LLM call. It costs nothing, is identical for the same input every
+time, and applies retroactively to jobs enriched before routing existed.
+
+```yaml
+routing:
+  channels:
+    india: TELEGRAM_CHANNEL_INDIA          # the env var NAME, not the value
+    international: TELEGRAM_CHANNEL_INTERNATIONAL
+  india_location_patterns: [india, bengaluru, pune, ...]
+```
+
+Matching is on **whole words**. That detail is load-bearing: a plain substring
+match on `india` also catches `Indianapolis, IN` and `Indiana`, quietly routing
+US jobs to the India channel. Postgres spells the word boundary `\y` (not `\b`,
+which means backspace there and silently matches nothing) — `routing.py`
+generates both dialects from the one pattern list.
+
+A job with no location routes to `international` rather than disappearing from
+both channels.
+
+**Adding a channel later:** add the route to `routing.channels`, add its secret,
+then run `seed-posted` — a new channel's `posted_jobs` is empty, so without the
+backfill its first publish treats your entire back catalogue as new. Run
+`status` to see the routing split and the per-channel posted counts.
 
 ---
 
