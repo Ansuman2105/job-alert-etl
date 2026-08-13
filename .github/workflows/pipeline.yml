@@ -13,7 +13,15 @@ on:
         description: "Which stage to run"
         type: choice
         default: run
-        options: [run, extract, transform, enrich, publish, validate-sources, status]
+        options:
+          - run
+          - extract
+          - transform
+          - enrich
+          - publish
+          - seed-posted
+          - validate-sources
+          - status
       dry_run:
         description: "Publish: print instead of sending to Telegram"
         type: boolean
@@ -60,8 +68,20 @@ jobs:
       - name: Run
         run: |
           STAGE="${{ inputs.stage || 'run' }}"
-          if [ "$STAGE" = "publish" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
-            python -m jobalert publish --dry-run
-          else
-            python -m jobalert "$STAGE"
-          fi
+          case "$STAGE" in
+            publish)
+              if [ "${{ inputs.dry_run }}" = "true" ]; then
+                python -m jobalert publish --dry-run
+              else
+                python -m jobalert publish
+              fi
+              ;;
+            seed-posted)
+              # Backfill: suppress the first-run flood. Needs --yes because it is
+              # destructive to a fresh channel's contents if run by accident.
+              python -m jobalert seed-posted --yes
+              ;;
+            *)
+              python -m jobalert "$STAGE"
+              ;;
+          esac
