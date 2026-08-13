@@ -1,0 +1,53 @@
+# ATS board tokens. Edit this file from github.com on your phone — the next
+# scheduled run picks up the change automatically.
+#
+# How to find a token: open a company's careers page and read the URL.
+#   job-boards.greenhouse.io/databricks  -> greenhouse token "databricks"
+#   jobs.ashbyhq.com/openai              -> ashby token      "openai"
+#   jobs.lever.co/spotify                -> lever token      "spotify"
+#
+# Every token below was verified against the live API on 2026-08-13.
+# After adding new ones, run `python -m jobalert validate-sources` and delete
+# anything reported DEAD — a wrong token is a 404, not an error worth keeping.
+
+greenhouse:
+  - databricks      # 802
+  - stripe          # 566
+  - datadog         # 438
+  - mongodb         # 417
+  - zscaler         # 337
+  - cloudflare      # 305
+  - samsara         # 265
+  - elastic         # 255
+  - gitlab          # 196
+  - affirm          # 197
+  - coinbase        # 167
+  - twilio          # 164
+  - figma           # 158
+  - instacart       # 115
+  - postman         # 105
+  - dropbox         # 34
+  - wise            # 1
+
+ashby:
+  - openai          # 728
+  - ramp            # 136
+  - notion          # 128
+  - replit          # 76
+  - linear          # 32
+  - vercel          # valid token, currently 0 postings
+  - deel            # valid token, currently 0 postings
+
+lever:
+  - spotify         # 101
+  - meesho          # 54
+
+# Aggregator feeds — no token needed, fetched whole.
+feeds:
+  arbeitnow: true
+  remoteok: true
+
+# Removed as DEAD (HTTP 404) on 2026-08-13 — these companies have moved ATS or
+# renamed their board. Re-check occasionally rather than deleting the record:
+#   greenhouse: hashicorp, confluent, doordash, freshworks, browserstack
+#   lever:      swiggy, zomato

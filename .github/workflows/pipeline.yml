@@ -1,0 +1,67 @@
+name: pipeline
+
+on:
+  schedule:
+    # 11:00 IST = 05:30 UTC. GitHub cron is always UTC and has no timezone option.
+    # Scheduled runs are queued, not guaranteed — expect 0-20 minutes of drift.
+    - cron: "30 5 * * *"
+
+  # Adds the "Run workflow" button, which is how you trigger this from the phone.
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "Which stage to run"
+        type: choice
+        default: run
+        options: [run, extract, transform, enrich, publish, validate-sources, status]
+      dry_run:
+        description: "Publish: print instead of sending to Telegram"
+        type: boolean
+        default: false
+
+concurrency:
+  # Never let a manual run collide with the scheduled one — both write the same tables.
+  group: jobalert-pipeline
+  cancel-in-progress: false
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'groq' }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      GROQ_MODEL: ${{ vars.GROQ_MODEL || 'llama-3.3-70b-versatile' }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.0-flash' }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+      TELEGRAM_ALERT_CHANNEL_ID: ${{ secrets.TELEGRAM_ALERT_CHANNEL_ID }}
+      ENRICH_LIMIT: ${{ vars.ENRICH_LIMIT || '250' }}
+      PUBLISH_LIMIT: ${{ vars.PUBLISH_LIMIT || '60' }}
+      PUBLISH_BATCH_SIZE: ${{ vars.PUBLISH_BATCH_SIZE || '5' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: pip install -e .
+
+      - name: Ensure schema
+        run: python -m jobalert init-db
+
+      - name: Run
+        run: |
+          STAGE="${{ inputs.stage || 'run' }}"
+          if [ "$STAGE" = "publish" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
+            python -m jobalert publish --dry-run
+          else
+            python -m jobalert "$STAGE"
+          fi

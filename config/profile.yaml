@@ -1,0 +1,49 @@
+# Publishing policy.
+#
+# You asked for every kind of job, so nothing is filtered out by default.
+# The LLM still classifies each job into a family and seniority — that metadata
+# lands in Postgres now, so when you split into per-topic channels later it is
+# a routing change, not a re-enrichment of your whole history.
+
+publish:
+  # false = publish everything (current setting)
+  # true  = only publish families listed in `families.include`
+  filter_by_family: false
+
+  # Ignored while filter_by_family is false. Kept here so the switch is one edit.
+  include_families: []
+
+  # Jobs whose posting date is older than this are never published.
+  # Protects against a board resurfacing ancient listings.
+  max_age_days: 45
+
+# Families the LLM assigns each job to. Keep this list stable — changing a label
+# means old rows and new rows disagree.
+families:
+  - data-engineering
+  - data-science-ml
+  - analytics-bi
+  - software-backend
+  - software-frontend
+  - devops-sre-platform
+  - security
+  - product-management
+  - design
+  - sales-marketing
+  - operations-hr-finance
+  - other
+
+seniority_levels:
+  - intern
+  - entry
+  - mid
+  - senior
+  - staff-principal
+  - manager
+  - director-plus
+
+# Future channel routing. Unused today — documents the intent so the schema
+# already carries what the split will need.
+# channels:
+#   data-engineering: "@your_data_jobs"
+#   software-backend: "@your_dev_jobs"
