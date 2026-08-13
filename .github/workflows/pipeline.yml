@@ -35,7 +35,10 @@ concurrency:
 jobs:
   pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Enrichment is the long pole: ~12s per job against Groq's 70B model, which
+    # is API latency plus our 2.2s rate-limit throttle. 60 minutes leaves room
+    # for ENRICH_LIMIT to be raised without silently hitting the ceiling.
+    timeout-minutes: 60
 
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -51,7 +54,10 @@ jobs:
       TELEGRAM_CHANNEL_INDIA: ${{ secrets.TELEGRAM_CHANNEL_INDIA }}
       TELEGRAM_CHANNEL_INTERNATIONAL: ${{ secrets.TELEGRAM_CHANNEL_INTERNATIONAL }}
       TELEGRAM_ALERT_CHANNEL_ID: ${{ secrets.TELEGRAM_ALERT_CHANNEL_ID }}
-      ENRICH_LIMIT: ${{ vars.ENRICH_LIMIT || '250' }}
+      # Measured at ~12s/job, so 150 is roughly a 30-minute stage — comfortably
+      # inside the 60-minute timeout. Raise it via a repo Variable once you know
+      # your real daily volume, or switch GROQ_MODEL to a faster model.
+      ENRICH_LIMIT: ${{ vars.ENRICH_LIMIT || '150' }}
       PUBLISH_LIMIT: ${{ vars.PUBLISH_LIMIT || '60' }}
       PUBLISH_BATCH_SIZE: ${{ vars.PUBLISH_BATCH_SIZE || '5' }}
 
