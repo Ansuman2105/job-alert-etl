@@ -121,10 +121,29 @@ Add `--no-alert` to any stage to suppress the Telegram failure message.
 - **See failures:** they arrive in your Telegram alert channel, and the Actions
   tab shows the full log.
 
-The schedule is `30 5 * * *` UTC = **11:00 IST**. GitHub cron is UTC-only and
-scheduled runs are queued rather than guaranteed — expect up to ~20 minutes of
-drift, and occasional skips under heavy load. Use *Run workflow* when you need
-it now.
+The pipeline runs **six times a day**, roughly every four hours:
+
+| UTC | IST |
+|---|---|
+| 01:07 | 06:37 |
+| 05:38 | 11:08 |
+| 09:23 | 14:53 |
+| 13:49 | 19:19 |
+| 17:11 | 22:41 |
+| 21:34 | 03:04 |
+
+GitHub cron is UTC-only and best effort — runs are queued on shared
+infrastructure and dropped under load. The first schedule this project used,
+`30 5 * * *`, never fired at all: `:00` and `:30` are the most contended minutes
+on the platform. Hence odd minutes, varied across the day.
+
+Six attempts is the real mitigation. A dropped run now costs a few hours of
+freshness rather than a whole day. Use *Run workflow* when you want it
+immediately.
+
+**Publishing only sends jobs it has never sent before**, so a run that finds
+nothing new correctly sends nothing. Silence on a quiet day is the pipeline
+working, not failing.
 
 ---
 

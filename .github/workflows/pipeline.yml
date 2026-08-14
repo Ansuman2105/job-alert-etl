@@ -2,16 +2,26 @@ name: pipeline
 
 on:
   schedule:
-    # 11:08 IST = 05:38 UTC. GitHub cron is always UTC and has no timezone option.
+    # Six times a day, roughly every 4 hours. Times are UTC; GitHub cron has no
+    # timezone option. IST is UTC+5:30.
     #
-    # Deliberately NOT on the hour or half hour. Scheduled workflows run on
-    # shared infrastructure and are dropped under load, and :00/:30 are by far
-    # the most contended minutes — the original "30 5 * * *" was silently
-    # skipped on its first day. An odd minute is materially more reliable.
+    # Two deliberate choices here:
     #
-    # Even so, scheduled runs are best effort: expect occasional drift and the
-    # rare skip. Use "Run workflow" when you need it now.
-    - cron: "38 5 * * *"
+    # 1. No entry sits on :00 or :30. Scheduled workflows run on shared
+    #    infrastructure and are dropped under load, and those are the most
+    #    contended minutes of the hour — the original "30 5 * * *" was silently
+    #    skipped on its first day. The minutes below are also varied rather than
+    #    identical, so one busy minute cannot take out the whole day.
+    #
+    # 2. Six attempts means a dropped run costs at most a few hours of freshness
+    #    instead of a whole day. That redundancy matters more than any single
+    #    run landing on time.
+    - cron: "07 1 * * *"    # 06:37 IST
+    - cron: "38 5 * * *"    # 11:08 IST
+    - cron: "23 9 * * *"    # 14:53 IST
+    - cron: "49 13 * * *"   # 19:19 IST
+    - cron: "11 17 * * *"   # 22:41 IST
+    - cron: "34 21 * * *"   # 03:04 IST
 
   # Adds the "Run workflow" button, which is how you trigger this from the phone.
   workflow_dispatch:
@@ -61,10 +71,11 @@ jobs:
       TELEGRAM_CHANNEL_INDIA: ${{ secrets.TELEGRAM_CHANNEL_INDIA }}
       TELEGRAM_CHANNEL_INTERNATIONAL: ${{ secrets.TELEGRAM_CHANNEL_INTERNATIONAL }}
       TELEGRAM_ALERT_CHANNEL_ID: ${{ secrets.TELEGRAM_ALERT_CHANNEL_ID }}
-      # Measured at ~12s/job, so 150 is roughly a 30-minute stage — comfortably
-      # inside the 60-minute timeout. Raise it via a repo Variable once you know
-      # your real daily volume, or switch GROQ_MODEL to a faster model.
-      ENRICH_LIMIT: ${{ vars.ENRICH_LIMIT || '150' }}
+      # Measured at ~12s/job. This is a ceiling per run, not a target — a run
+      # that finds 20 new jobs enriches 20. Lowered from 150 now the pipeline
+      # runs six times a day: the daily worst case would otherwise be 900 LLM
+      # calls, well past what a free tier allows.
+      ENRICH_LIMIT: ${{ vars.ENRICH_LIMIT || '80' }}
       PUBLISH_LIMIT: ${{ vars.PUBLISH_LIMIT || '60' }}
       PUBLISH_BATCH_SIZE: ${{ vars.PUBLISH_BATCH_SIZE || '5' }}
 
