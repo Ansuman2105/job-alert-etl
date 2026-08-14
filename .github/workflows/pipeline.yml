@@ -2,9 +2,16 @@ name: pipeline
 
 on:
   schedule:
-    # 11:00 IST = 05:30 UTC. GitHub cron is always UTC and has no timezone option.
-    # Scheduled runs are queued, not guaranteed — expect 0-20 minutes of drift.
-    - cron: "30 5 * * *"
+    # 11:08 IST = 05:38 UTC. GitHub cron is always UTC and has no timezone option.
+    #
+    # Deliberately NOT on the hour or half hour. Scheduled workflows run on
+    # shared infrastructure and are dropped under load, and :00/:30 are by far
+    # the most contended minutes — the original "30 5 * * *" was silently
+    # skipped on its first day. An odd minute is materially more reliable.
+    #
+    # Even so, scheduled runs are best effort: expect occasional drift and the
+    # rare skip. Use "Run workflow" when you need it now.
+    - cron: "38 5 * * *"
 
   # Adds the "Run workflow" button, which is how you trigger this from the phone.
   workflow_dispatch:
