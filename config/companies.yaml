@@ -10,7 +10,20 @@
 # After adding new ones, run `python -m jobalert validate-sources` and delete
 # anything reported DEAD — a wrong token is a 404, not an error worth keeping.
 
+# --- India-focused boards, verified 2026-08-14 -----------------------------
+# These carry the roles the India channel exists for. Everything below the
+# divider is global/US-EU: still useful, but mostly not India-based.
+
 greenhouse:
+  - phonepe         # 79
+  - highradius      # 76
+  - slice           # 43
+  - druva           # 34
+  - netradyne       # 32
+  - observeai       # 19
+  - groww           # 8
+
+  # --- global boards ---
   - databricks      # 802
   - stripe          # 566
   - datadog         # 438
@@ -30,6 +43,12 @@ greenhouse:
   - wise            # 1
 
 ashby:
+  # --- India ---
+  - navi            # 7
+  - atlan           # 5
+  - scaler          # valid token, currently 0 postings
+
+  # --- global ---
   - openai          # 728
   - ramp            # 136
   - notion          # 128
@@ -39,8 +58,16 @@ ashby:
   - deel            # valid token, currently 0 postings
 
 lever:
-  - spotify         # 101
+  # --- India ---
+  - paytm           # 252
   - meesho          # 54
+  - porter          # 29
+  - mindtickle      # 24
+  - epifi           # 11
+  - freshworks      # valid token, currently 0 postings
+
+  # --- global ---
+  - spotify         # 101
 
 # Aggregator feeds — no token needed, fetched whole.
 feeds:
