@@ -37,6 +37,7 @@ on:
           - enrich
           - publish
           - seed-posted
+          - prune
           - validate-sources
           - status
       dry_run:

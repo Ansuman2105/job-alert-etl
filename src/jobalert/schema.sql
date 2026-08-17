@@ -3,16 +3,23 @@
 
 -- Bronze: exactly what the API returned, never edited. Reparse from here when
 -- the transform logic turns out to be wrong.
+-- Only rows whose payload_hash differs from the last stored copy are inserted,
+-- and anything past the retention window is pruned. Without both, six runs a
+-- day x ~6,400 postings x a full job description fills a 512 MB database in
+-- about four days.
 CREATE TABLE IF NOT EXISTS raw_jobs (
     id            BIGSERIAL PRIMARY KEY,
     source        TEXT        NOT NULL,
     board         TEXT,
     source_job_id TEXT        NOT NULL,
     fetched_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    payload       JSONB       NOT NULL
+    payload       JSONB       NOT NULL,
+    payload_hash  TEXT
 );
 CREATE INDEX IF NOT EXISTS raw_jobs_fetched_idx ON raw_jobs (fetched_at DESC);
 CREATE INDEX IF NOT EXISTS raw_jobs_source_idx  ON raw_jobs (source, board);
+CREATE INDEX IF NOT EXISTS raw_jobs_identity_idx
+    ON raw_jobs (source, board, source_job_id, fetched_at DESC);
 
 -- Silver: one row per unique job. job_hash is company+title+location normalised,
 -- so the same role listed on three boards collapses to one row.

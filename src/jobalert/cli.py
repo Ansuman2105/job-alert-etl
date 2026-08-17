@@ -138,11 +138,27 @@ def cmd_seed_posted(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_prune(args: argparse.Namespace) -> int:
+    deleted = db.prune_raw_jobs(args.days)
+    print(f"Pruned {deleted} raw rows older than {args.days} days.")
+    print("Note: Postgres reuses freed space for new rows but does not shrink the")
+    print("files on disk. Run VACUUM FULL raw_jobs; in the Neon SQL editor if you")
+    print("need the space back immediately.")
+    return 0
+
+
 def cmd_status(_: argparse.Namespace) -> int:
     from . import routing
 
     for table, count in db.counts().items():
         print(f"{table:<14} {count:>8}")
+
+    print("\nStorage (free tier ceiling is 512 MB):")
+    total = 0
+    for name, pretty, size in db.table_sizes():
+        total += size
+        print(f"  {name:<15} {pretty:>10}")
+    print(f"  {'TOTAL':<15} {total / 1_048_576:>7.0f} MB")
 
     print("\nRouting split (all jobs):")
     for route, count in db.route_preview(routing.postgres_regex()).items():
@@ -170,7 +186,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("validate-sources", help="test every board token").set_defaults(
         func=cmd_validate_sources
     )
-    sub.add_parser("status", help="row counts").set_defaults(func=cmd_status)
+    sub.add_parser("status", help="row counts and storage").set_defaults(func=cmd_status)
+
+    p_prune = sub.add_parser("prune", help="delete old raw_jobs rows")
+    p_prune.add_argument("--days", type=int, default=14, help="retention window")
+    p_prune.set_defaults(func=cmd_prune)
     sub.add_parser("extract", help="fetch sources into raw_jobs").set_defaults(func=cmd_extract)
 
     p_transform = sub.add_parser("transform", help="normalise raw_jobs into jobs")

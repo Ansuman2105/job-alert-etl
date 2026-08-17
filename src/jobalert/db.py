@@ -7,6 +7,7 @@ retry from the Actions tab without thinking about it.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -41,6 +42,16 @@ def init_schema() -> None:
     sql = SCHEMA_PATH.read_text(encoding="utf-8")
     with connect() as conn, conn.cursor() as cur:
         cur.execute(sql)
+        # Nullable with no default, so Postgres records this as metadata only —
+        # it does not rewrite the table, which matters when the database is
+        # already at its size limit and cannot extend a file.
+        cur.execute("ALTER TABLE raw_jobs ADD COLUMN IF NOT EXISTS payload_hash TEXT")
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS raw_jobs_identity_idx
+                ON raw_jobs (source, board, source_job_id, fetched_at DESC)
+            """
+        )
     log.info("schema ready")
 
 
@@ -49,17 +60,84 @@ def init_schema() -> None:
 # --------------------------------------------------------------------------
 
 def insert_raw_jobs(raw: list[RawJob]) -> int:
+    """Store only postings whose payload actually changed.
+
+    Bronze is append-only, but appending every posting on every run is what
+    filled a 512 MB database in four days: six runs a day x ~6,400 postings,
+    each carrying a full job description, almost all of it byte-identical to
+    the copy stored four hours earlier.
+
+    Hashing the payload and skipping unchanged rows keeps the reparse-from-
+    bronze property while collapsing a normal run from ~6,400 inserts to the
+    few hundred postings that genuinely moved.
+    """
     if not raw:
         return 0
-    rows = [(r.source, r.board, r.source_job_id, json.dumps(r.payload)) for r in raw]
+
+    payloads = {}
+    for item in raw:
+        body = json.dumps(item.payload, sort_keys=True)
+        digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+        payloads[(item.source, item.board, item.source_job_id)] = (item, body, digest)
+
+    keys = list(payloads)
+    known: dict[tuple, str] = {}
+
     with connect() as conn, conn.cursor() as cur:
-        psycopg2.extras.execute_values(
-            cur,
-            "INSERT INTO raw_jobs (source, board, source_job_id, payload) VALUES %s",
-            rows,
-            page_size=500,
+        # Latest stored hash per posting, for just the keys in this batch.
+        for start in range(0, len(keys), 500):
+            chunk = keys[start : start + 500]
+            cur.execute(
+                """
+                SELECT DISTINCT ON (source, board, source_job_id)
+                       source, board, source_job_id, payload_hash
+                  FROM raw_jobs
+                 WHERE (source, board, source_job_id) IN %s
+                 ORDER BY source, board, source_job_id, fetched_at DESC
+                """,
+                (tuple((s, b, i) for s, b, i in chunk),),
+            )
+            for source, board, job_id, digest in cur.fetchall():
+                known[(source, board, job_id)] = digest
+
+        changed = [
+            (item.source, item.board, item.source_job_id, body, digest)
+            for key, (item, body, digest) in payloads.items()
+            if known.get(key) != digest
+        ]
+
+        if changed:
+            psycopg2.extras.execute_values(
+                cur,
+                """
+                INSERT INTO raw_jobs (source, board, source_job_id, payload, payload_hash)
+                VALUES %s
+                """,
+                changed,
+                page_size=500,
+            )
+
+    skipped = len(payloads) - len(changed)
+    log.info("raw: %d changed, %d unchanged (skipped)", len(changed), skipped)
+    return len(changed)
+
+
+def prune_raw_jobs(keep_days: int = 14) -> int:
+    """Drop bronze rows older than the retention window.
+
+    transform only ever reads the last few days, so anything older is dead
+    weight. Without this the table grows without bound and eventually takes the
+    whole database down with it.
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "DELETE FROM raw_jobs WHERE fetched_at < now() - make_interval(days => %s)",
+            (keep_days,),
         )
-    return len(rows)
+        deleted = cur.rowcount
+    if deleted:
+        log.info("pruned %d raw rows older than %d days", deleted, keep_days)
+    return deleted
 
 
 def fetch_raw_for_transform(lookback_days: int = 3) -> list[RawJob]:
@@ -328,6 +406,25 @@ def posted_counts() -> dict[str, int]:
     with connect() as conn, conn.cursor() as cur:
         cur.execute("SELECT channel, count(*) FROM posted_jobs GROUP BY channel ORDER BY channel")
         return dict(cur.fetchall())
+
+
+def table_sizes() -> list[tuple[str, str, int]]:
+    """Disk used per table, largest first.
+
+    Worth surfacing: the free tier's 512 MB ceiling is invisible until a write
+    fails, and by then the pipeline is already down.
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT relname,
+                   pg_size_pretty(pg_total_relation_size(relid)) AS pretty,
+                   pg_total_relation_size(relid)                 AS bytes
+              FROM pg_catalog.pg_statio_user_tables
+             ORDER BY pg_total_relation_size(relid) DESC
+            """
+        )
+        return [(name, pretty, size) for name, pretty, size in cur.fetchall()]
 
 
 def counts() -> dict[str, int]:
