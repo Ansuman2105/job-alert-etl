@@ -45,7 +45,7 @@ On the **Variables** tab (these are *not* secret, and are visible in logs):
 | Variable | Default | Purpose |
 |---|---|---|
 | `LLM_PROVIDER` | `groq` | `groq` or `gemini` |
-| `GROQ_MODEL` | `openai/gpt-oss-120b` | update if the model is retired |
+| `GROQ_MODEL` | `openai/gpt-oss-20b` | update if the model is retired |
 | `ENRICH_LIMIT` | `250` | jobs sent to the LLM per run |
 | `PUBLISH_LIMIT` | `60` | jobs published per run |
 | `PUBLISH_BATCH_SIZE` | `5` | jobs bundled into one Telegram message |

@@ -19,6 +19,11 @@ ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 # without relying on 429 retries, which burn the daily token budget.
 MIN_INTERVAL_SECONDS = 2.2
 
+# Model latency varies a lot by size: gpt-oss-120b regularly runs past 60s on a
+# long job description, and each timeout costs a retry plus backoff rather than
+# just a slow answer.
+REQUEST_TIMEOUT = 150
+
 
 MODELS_ENDPOINT = "https://api.groq.com/openai/v1/models"
 
@@ -98,7 +103,11 @@ class GroqClient(LLMClient):
                 "temperature": 0.1,
                 "max_tokens": 1024,
             },
-            timeout=60,
+            # Generous on purpose. A larger model occasionally takes over a
+            # minute, and a timeout is far more expensive than a slow reply:
+            # the session retries with backoff, so one killed call can cost
+            # four minutes and the log only says the run was slow.
+            timeout=REQUEST_TIMEOUT,
         )
 
         if response.status_code == 429:
