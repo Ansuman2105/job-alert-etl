@@ -70,7 +70,7 @@ class Settings:
             database_url=_require("DATABASE_URL"),
             llm_provider=provider,
             groq_api_key=os.getenv("GROQ_API_KEY", "").strip(),
-            groq_model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip(),
+            groq_model=os.getenv("GROQ_MODEL", "openai/gpt-oss-120b").strip(),
             gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
             gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip(),
             telegram_bot_token=_require("TELEGRAM_BOT_TOKEN"),

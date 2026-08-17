@@ -25,6 +25,10 @@ def run(limit: int | None = None) -> dict:
         return {"attempted": 0, "enriched": 0, "failed": 0}
 
     client = llm.get_client()
+    # Cheap, and it converts "80 identical 404s with no explanation" into one
+    # error naming the models this key can actually use.
+    client.preflight()
+
     profile = load_profile()
     families = [f.lower() for f in profile.get("families", [])]
     levels = [s.lower() for s in profile.get("seniority_levels", [])]

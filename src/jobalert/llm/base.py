@@ -25,6 +25,14 @@ class LLMClient(ABC):
     def complete_json(self, system: str, user: str) -> dict:
         """Return the model's reply parsed as a JSON object."""
 
+    def preflight(self) -> None:
+        """Check the configured model exists before processing a batch.
+
+        Optional: a provider without a catalogue endpoint keeps the default
+        no-op and simply fails on the first real call.
+        """
+        return None
+
 
 def extract_json(text: str) -> dict:
     """Parse a JSON object out of a model reply.

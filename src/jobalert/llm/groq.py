@@ -20,6 +20,9 @@ ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 MIN_INTERVAL_SECONDS = 2.2
 
 
+MODELS_ENDPOINT = "https://api.groq.com/openai/v1/models"
+
+
 class GroqClient(LLMClient):
     name = "groq"
 
@@ -30,6 +33,48 @@ class GroqClient(LLMClient):
         self.model = settings.groq_model
         self._key = settings.groq_api_key
         self._last_call = 0.0
+
+    def preflight(self) -> None:
+        """Fail once, with the answer, instead of once per job without it.
+
+        Providers retire models. When that happens every call 404s identically,
+        and the log fills with per-job failures that never say which model to
+        use instead. Checking the catalogue once turns that into a single error
+        naming the available options.
+        """
+        try:
+            response = session().get(
+                MODELS_ENDPOINT,
+                headers={"Authorization": f"Bearer {self._key}"},
+                timeout=30,
+            )
+        except Exception as exc:  # noqa: BLE001 - preflight must not mask the real run
+            log.warning("could not verify the model list (%s) — continuing anyway", exc)
+            return
+
+        if response.status_code == 401:
+            raise LLMError("GROQ_API_KEY was rejected (401). Create a new key at console.groq.com.")
+        if not response.ok:
+            log.warning("model list unavailable (%s) — continuing anyway", response.status_code)
+            return
+
+        available = sorted(
+            item.get("id", "") for item in response.json().get("data", []) if item.get("id")
+        )
+        if self.model in available:
+            return
+
+        # Guard/whisper/TTS models cannot answer a chat completion; suggesting
+        # them would send someone down a second dead end.
+        chat_models = [
+            name for name in available
+            if not any(skip in name for skip in ("whisper", "guard", "tts", "embed"))
+        ]
+        raise LLMError(
+            f"GROQ_MODEL '{self.model}' is not available on this key — it has most "
+            f"likely been retired. Set the GROQ_MODEL repository variable to one of:\n  "
+            + "\n  ".join(chat_models or available)
+        )
 
     def _throttle(self) -> None:
         elapsed = time.monotonic() - self._last_call
