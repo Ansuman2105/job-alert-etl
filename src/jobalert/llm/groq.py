@@ -24,6 +24,12 @@ MIN_INTERVAL_SECONDS = 2.2
 # just a slow answer.
 REQUEST_TIMEOUT = 150
 
+# Measured on 80 real postings each:
+#   gpt-oss-120b  18m55s, 0 failures
+#   gpt-oss-20b   19m59s, 12 failures (ran out of tokens mid-reasoning)
+# The smaller model was not faster — the 2.2s throttle dominates either way —
+# and it was materially less reliable. Size is not the useful dial here.
+
 
 MODELS_ENDPOINT = "https://api.groq.com/openai/v1/models"
 
@@ -101,7 +107,13 @@ class GroqClient(LLMClient):
                 # Requires the word "JSON" to appear in the prompt, which it does.
                 "response_format": {"type": "json_object"},
                 "temperature": 0.1,
-                "max_tokens": 1024,
+                # Generous because gpt-oss models reason before answering, and
+                # those reasoning tokens count against this budget. At 1024 the
+                # smaller model regularly exhausted it mid-thought and returned
+                # "max completion tokens reached before generating a valid
+                # document" — a 400, not a truncated reply. The JSON itself is
+                # only a few hundred tokens; the headroom is for the thinking.
+                "max_tokens": 4096,
             },
             # Generous on purpose. A larger model occasionally takes over a
             # minute, and a timeout is far more expensive than a slow reply:
