@@ -54,9 +54,9 @@ jobs:
   pipeline:
     runs-on: ubuntu-latest
     # Enrichment is the long pole: ~12s per job against Groq's 70B model, which
-    # is API latency plus our 2.2s rate-limit throttle. 60 minutes leaves room
-    # for ENRICH_LIMIT to be raised without silently hitting the ceiling.
-    timeout-minutes: 60
+    # is API latency plus our 2.2s rate-limit throttle. Increase timeout so
+    # scheduled runs have headroom while keeping ENRICH_LIMIT conservative.
+    timeout-minutes: 120
 
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
