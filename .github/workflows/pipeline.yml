@@ -77,8 +77,8 @@ jobs:
       # runs six times a day: the daily worst case would otherwise be 900 LLM
       # calls, well past what a free tier allows.
       # Use a conservative default to avoid hitting the workflow timeout on busy runs.
-      # Reduced further to 20 to ensure scheduled runs complete within timeout.
-      ENRICH_LIMIT: '20'
+      # Reduced further to 10 to ensure scheduled runs complete within timeout.
+      ENRICH_LIMIT: '10'
       PUBLISH_LIMIT: '60'
       PUBLISH_BATCH_SIZE: '5'
 
