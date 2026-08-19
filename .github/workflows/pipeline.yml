@@ -95,11 +95,19 @@ jobs:
         run: python -m jobalert init-db
 
       - name: Run
+        shell: bash
         run: |
-          STAGE="${{ inputs.stage || 'run' }}"
+          set -euo pipefail
+          # Prefer explicit workflow inputs when present; fall back to sensible
+          # defaults for scheduled runs where inputs are not supplied.
+          STAGE="${{ github.event.inputs.stage }}"
+          STAGE="${STAGE:-run}"
+          DRY_RUN="${{ github.event.inputs.dry_run }}"
+          DRY_RUN="${DRY_RUN:-false}"
+
           case "$STAGE" in
             publish)
-              if [ "${{ inputs.dry_run }}" = "true" ]; then
+              if [ "$DRY_RUN" = "true" ]; then
                 python -m jobalert publish --dry-run
               else
                 python -m jobalert publish
