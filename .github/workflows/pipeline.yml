@@ -76,9 +76,10 @@ jobs:
       # that finds 20 new jobs enriches 20. Lowered from 150 now the pipeline
       # runs six times a day: the daily worst case would otherwise be 900 LLM
       # calls, well past what a free tier allows.
-      ENRICH_LIMIT: ${{ vars.ENRICH_LIMIT || '80' }}
-      PUBLISH_LIMIT: ${{ vars.PUBLISH_LIMIT || '60' }}
-      PUBLISH_BATCH_SIZE: ${{ vars.PUBLISH_BATCH_SIZE || '5' }}
+      # Use a conservative default to avoid hitting the workflow timeout on busy runs.
+      ENRICH_LIMIT: '40'
+      PUBLISH_LIMIT: '60'
+      PUBLISH_BATCH_SIZE: '5'
 
     steps:
       - uses: actions/checkout@v4
